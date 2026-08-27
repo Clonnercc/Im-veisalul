@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1.0"
+>
+
+<title>Painel administrativo</title>
+
+<link
+  rel="stylesheet"
+  href="/style.css"
+>
+
+<style>
+
+.admin-container {
+  max-width: 1000px;
+  margin: 30px auto;
+  padding: 15px;
+}
+
+.cadastro {
+  border: 1px solid #e4e7ec;
+  border-radius: 12px;
+  padding: 18px;
+  margin-top: 15px;
+}
+
+.cadastro strong {
+  font-size: 17px;
+}
+
+.cadastro p {
+  color: #667085;
+  font-size: 14px;
+}
+
+select {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #d0d5dd;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="admin-container">
+
+<section class="card">
+
+<div class="logo">
+ADMIN
+</div>
+
+<h1>Painel administrativo</h1>
+
+<p class="descricao">
+Configure a cobrança que será apresentada ao cliente.
+</p>
+
+<form id="configForm">
+
+<label>
+Título da cobrança
+
+<input
+  id="titulo"
+  required
+>
+</label>
+
+<label>
+Valor do aluguel
+
+<input
+  id="valor"
+  placeholder="Ex.: 1.850,00"
+  required
+>
+</label>
+
+<label>
+Pix Copia e Cola
+
+<textarea
+  id="pix"
+  placeholder="Cole aqui o código Pix"
+></textarea>
+</label>
+
+<label>
+Termos / contrato
+
+<textarea
+  id="contrato"
+  rows="10"
+></textarea>
+</label>
+
+<button>
+Salvar configuração
+</button>
+
+</form>
+
+</section>
+
+
+<section class="card">
+
+<h2>
+Cadastros recebidos
+</h2>
+
+<div id="cadastros">
+Carregando...
+</div>
+
+</section>
+
+</div>
+
+
+<script>
+
+let autenticacao = null;
+
+function pedirLogin() {
+
+  const usuario =
+    prompt("menorbom:");
+
+  if (usuario === null)
+    return false;
+
+  const senha =
+    prompt("menor777:");
+
+  if (senha === null)
+    return false;
+
+  autenticacao =
+    "Basic " +
+    btoa(usuario + ":" + senha);
+
+  return true;
+}
+
+
+async function api(url, opcoes = {}) {
+
+  opcoes.headers = {
+
+    ...(opcoes.headers || {}),
+
+    Authorization: autenticacao
+
+  };
+
+  const resposta =
+    await fetch(url, opcoes);
+
+  if (!resposta.ok)
+    throw new Error(
+      await resposta.text()
+    );
+
+  return resposta.json();
+
+}
+
+
+async function carregar() {
+
+  try {
+
+    const dados =
+      await api("/api/admin");
+
+    titulo.value =
+      dados.configuracao.titulo;
+
+    valor.value =
+      dados.configuracao.valor;
+
+    pix.value =
+      dados.configuracao.pix;
+
+    contrato.value =
+      dados.configuracao.contrato;
+
+    const area =
+      document.getElementById("cadastros");
+
+    if (!dados.cadastros.length) {
+
+      area.innerHTML =
+        "<p>Nenhum cadastro recebido.</p>";
+
+      return;
+    }
+
+    area.innerHTML =
+      dados.cadastros
+      .map(cadastro => `
+
+        <div class="cadastro">
+
+          <strong>
+            ${escapar(cadastro.nome)}
+          </strong>
+
+          <p>
+            CPF:
+            ${escapar(cadastro.cpf)}
+          </p>
+
+          <p>
+            Telefone:
+            ${escapar(cadastro.telefone)}
+          </p>
+
+          <p>
+            E-mail:
+            ${escapar(cadastro.email)}
+          </p>
+
+          <p>
+            Retirada das chaves:
+            ${escapar(cadastro.retiradaNome)}
+          </p>
+
+          <p>
+            CPF do responsável pela retirada:
+            ${escapar(cadastro.retiradaCpf)}
+          </p>
+
+          <p>
+            Confirmação:
+            ${escapar(cadastro.assinaturaNome)}
+          </p>
+
+          <select
+            onchange="alterarStatus(
+              '${cadastro.id}',
+              this.value
+            )"
+          >
+
+            ${[
+              "Aguardando pagamento",
+              "Pago",
+              "Cancelado"
+            ].map(status => `
+
+              <option
+                ${status === cadastro.status
+                  ? "selected"
+                  : ""}
+              >
+                ${status}
+              </option>
+
+            `).join("")}
+
+          </select>
+
+        </div>
+
+      `)
+      .join("");
+
+  } catch (erro) {
+
+    document.getElementById("cadastros")
+      .innerHTML =
+      "<p>Não foi possível acessar o painel.</p>";
+
+  }
+
+}
+
+
+document
+  .getElementById("configForm")
+  .addEventListener("submit", async event => {
+
+    event.preventDefault();
+
+    await api(
+      "/api/admin/config",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json"
+        },
+
+        body: JSON.stringify({
+
+          titulo: titulo.value,
+
+          valor: valor.value,
+
+          pix: pix.value,
+
+          contrato: contrato.value
+
+        })
+
+      }
+    );
+
+    alert("Configuração salva.");
+
+  });
+
+
+async function alterarStatus(id, status) {
+
+  await api(
+    "/api/admin/cadastro/" + id,
+    {
+      method: "PATCH",
+
+      headers: {
+        "Content-Type":
+          "application/json"
+      },
+
+      body: JSON.stringify({
+        status
+      })
+
+    }
+  );
+
+}
+
+
+function escapar(texto) {
+
+  return String(texto || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+
+}
+
+
+if (pedirLogin()) {
+  carregar();
+}
+
+</script>
+
+</body>
+</html>
