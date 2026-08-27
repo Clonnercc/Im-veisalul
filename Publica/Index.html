@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>Pagamento de aluguel</title>
+
+  <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+
+<div class="container">
+
+  <!-- FORMULÁRIO -->
+
+  <section class="card" id="formulario">
+
+    <div class="logo">ALUGUEL</div>
+
+    <h1 id="titulo">
+      Pagamento do aluguel
+    </h1>
+
+    <p class="descricao">
+      Preencha os dados abaixo para continuar.
+    </p>
+
+    <form id="cadastroForm">
+
+      <h2>Responsável pelo aluguel</h2>
+
+      <label>
+        Nome completo
+        <input
+          type="text"
+          name="nome"
+          required
+        >
+      </label>
+
+      <div class="dupla">
+
+        <label>
+          CPF
+          <input
+            type="text"
+            name="cpf"
+            required
+          >
+        </label>
+
+        <label>
+          Data de nascimento
+          <input
+            type="date"
+            name="nascimento"
+            required
+          >
+        </label>
+
+      </div>
+
+      <div class="dupla">
+
+        <label>
+          Telefone / WhatsApp
+          <input
+            type="tel"
+            name="telefone"
+            required
+          >
+        </label>
+
+        <label>
+          E-mail
+          <input
+            type="email"
+            name="email"
+            required
+          >
+        </label>
+
+      </div>
+
+      <label>
+        Endereço
+        <input
+          type="text"
+          name="endereco"
+          required
+        >
+      </label>
+
+      <label>
+        Cidade / UF
+        <input
+          type="text"
+          name="cidade"
+          required
+        >
+      </label>
+
+
+      <h2>Retirada das chaves</h2>
+
+      <p class="descricao pequeno">
+        Informe quem irá retirar as chaves do apartamento.
+      </p>
+
+      <label>
+        Nome completo
+        <input
+          type="text"
+          name="retiradaNome"
+          required
+        >
+      </label>
+
+      <div class="dupla">
+
+        <label>
+          CPF
+          <input
+            type="text"
+            name="retiradaCpf"
+            required
+          >
+        </label>
+
+        <label>
+          Telefone
+          <input
+            type="tel"
+            name="retiradaTelefone"
+            required
+          >
+        </label>
+
+      </div>
+
+
+      <h2>Contrato</h2>
+
+      <div
+        class="contrato"
+        id="contrato"
+      >
+        Carregando...
+      </div>
+
+      <label class="aceite">
+
+        <input
+          type="checkbox"
+          name="contratoAceito"
+          id="contratoAceito"
+        >
+
+        <span>
+          Li e concordo com os termos apresentados.
+        </span>
+
+      </label>
+
+      <label>
+        Nome para confirmação eletrônica
+        <input
+          type="text"
+          name="assinaturaNome"
+          required
+        >
+      </label>
+
+      <button type="submit">
+        Continuar para pagamento
+      </button>
+
+      <p
+        class="erro"
+        id="erro"
+      ></p>
+
+    </form>
+
+  </section>
+
+
+  <!-- PAGAMENTO -->
+
+  <section
+    class="card pagamento escondido"
+    id="pagamento"
+  >
+
+    <div class="logo">ALUGUEL</div>
+
+    <h1>Pagamento</h1>
+
+    <p class="descricao">
+      Seu cadastro foi recebido.
+    </p>
+
+    <div class="valor">
+      R$ <span id="valor">0,00</span>
+    </div>
+
+    <div class="status">
+      Aguardando pagamento
+    </div>
+
+    <h2>Pix Copia e Cola</h2>
+
+    <textarea
+      id="pix"
+      readonly
+      placeholder="Carregando código Pix..."
+    ></textarea>
+
+    <button
+      type="button"
+      id="copiar"
+    >
+      Copiar código Pix
+    </button>
+
+    <p
+      class="copiado"
+      id="copiado"
+    ></p>
+
+  </section>
+
+</div>
+
+<script>
+
+let pixAtual = "";
+
+async function carregarConfiguracao() {
+
+  const resposta =
+    await fetch("/api/config");
+
+  const config =
+    await resposta.json();
+
+  document.getElementById("titulo")
+    .textContent =
+    config.titulo || "Pagamento do aluguel";
+
+  document.getElementById("valor")
+    .textContent =
+    config.valor || "0,00";
+
+  document.getElementById("contrato")
+    .textContent =
+    config.contrato ||
+    "Termos não cadastrados.";
+
+}
+
+carregarConfiguracao();
+
+
+document
+  .getElementById("cadastroForm")
+  .addEventListener("submit", async function(event) {
+
+    event.preventDefault();
+
+    const erro =
+      document.getElementById("erro");
+
+    erro.textContent = "";
+
+    const formulario =
+      new FormData(this);
+
+    const dados =
+      Object.fromEntries(formulario.entries());
+
+    dados.contratoAceito =
+      document.getElementById(
+        "contratoAceito"
+      ).checked;
+
+    const resposta =
+      await fetch("/api/cadastro", {
+
+        method: "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json"
+        },
+
+        body: JSON.stringify(dados)
+
+      });
+
+    const resultado =
+      await resposta.json();
+
+    if (!resposta.ok) {
+
+      erro.textContent =
+        resultado.erro ||
+        "Não foi possível continuar.";
+
+      return;
+    }
+
+    const pixResposta =
+      await fetch("/api/pix");
+
+    const pixDados =
+      await pixResposta.json();
+
+    pixAtual =
+      pixDados.pix || "";
+
+    document.getElementById("pix")
+      .value = pixAtual;
+
+    document.getElementById("formulario")
+      .classList.add("escondido");
+
+    document.getElementById("pagamento")
+      .classList.remove("escondido");
+
+  });
+
+
+document
+  .getElementById("copiar")
+  .addEventListener("click", async function() {
+
+    if (!pixAtual) {
+
+      alert(
+        "O administrador ainda não cadastrou o Pix."
+      );
+
+      return;
+    }
+
+    await navigator.clipboard
+      .writeText(pixAtual);
+
+    document.getElementById("copiado")
+      .textContent =
+      "Código Pix copiado.";
+
+  });
+
+</script>
+
+</body>
+</html>
